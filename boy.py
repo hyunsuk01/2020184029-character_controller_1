@@ -1,5 +1,6 @@
 from pico2d import load_image, get_time
-from state_machine import StateMachine, time_out, space_down, right_down, left_down, left_up, right_up, start_event
+from state_machine import StateMachine, time_out, space_down, right_down, left_down, left_up, right_up, start_event, \
+    a_down
 
 
 # 상태를 클래스를 통해서 정의함
@@ -12,6 +13,12 @@ class Idle:
         elif right_up(e) or left_down(e) or start_event(e):
             boy.action = 3
             boy.face_dir = 1
+
+        if time_out(e):
+            if boy.action == 0:
+                boy.action == 2
+            elif boy.action == 1:
+                boy.action == 3
 
         boy.frame = 0
         boy.dir = 0
@@ -27,7 +34,7 @@ class Idle:
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + 1) % 8
-        if get_time() - boy.start_time > 1:
+        if get_time() - boy.start_time > 1000000:
             #이벤트 발생
             boy.state_machine.add_event(('TIME_OUT',0))
 
@@ -92,6 +99,46 @@ class Run:
             boy.x, boy.y
         )
 
+class AutoRun:
+    @staticmethod
+    def enter(boy, e):
+        boy.start_time = get_time()
+        pass
+
+    @staticmethod
+    def exit(boy, e):
+        pass
+
+    @staticmethod
+    def do(boy):
+        boy.frame = (boy.frame + 1) % 8
+        boy.x += boy.face_dir * 10
+        if boy.x >= 750:
+            boy.face_dir = -1
+        elif boy.x <= 50:
+            boy.face_dir = 1
+        if boy.face_dir == 1:
+            boy.action = 3
+        elif boy.face_dir == -1:
+            boy.action = 2
+
+        if get_time() - boy.start_time > 5:
+            boy.state_machine.add_event(('TIME_OUT',0))
+        pass
+
+    @staticmethod
+    def draw(boy):
+        if boy.face_dir == 1:
+            boy.image.clip_draw(
+                boy.frame * 100, 100, 100, 100,
+                boy.x, boy.y + 25, 200, 200
+            )
+        elif boy.face_dir == -1:
+            boy.image.clip_draw(
+                boy.frame * 100, 0, 100, 100,
+                boy.x, boy.y + 25, 200, 200
+            )
+        pass
 
 class Boy:
     def __init__(self):
@@ -104,9 +151,10 @@ class Boy:
         self.state_machine.start(Idle) # 초기 상태가 Idle
         self.state_machine.set_transitions(
             {
-                Idle: {right_down: Run, left_down: Run, left_up: Run, right_up: Run, time_out: Sleep},
+                Idle: {right_down: Run, left_down: Run, left_up: Run, right_up: Run, a_down: AutoRun, time_out: Sleep},
                 Run: {right_down: Idle, left_down: Idle, right_up: Idle, left_up: Idle},
-                Sleep: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, space_down: Idle}
+                Sleep: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, space_down: Idle},
+                AutoRun: {time_out: Idle, right_down: Run, left_down: Run}
             }
         )
 
